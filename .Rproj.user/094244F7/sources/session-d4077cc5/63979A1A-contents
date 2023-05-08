@@ -1,0 +1,118 @@
+---
+title: "YHT_PeakBio"
+author: "Jonathan Farr"
+date: "2023-05-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(terra)
+library(sf)
+library(tidyverse)
+library(irg)
+library(data.table)
+```
+
+
+Briefly transforming our CRS to make this play nicely with GEE 
+```{r}
+plots <- sf::read_sf("veg.plot.locs.2022.shp")
+
+plots <- st_transform(plots, crs=26911)
+
+plots_WGS84 <- st_transform(plots, crs = 4326)
+
+plots
+
+mapview::mapview(plots_WGS84)
+```
+
+
+
+Writing a shapefile
+```{r}
+
+write_sf(plots_WGS84, "veg_plots_wgs84/veg_plots_WGS84_2022.shp")
+
+```
+
+
+Reading our data back in with MODIS NDVI Data Included 
+```{r}
+
+# reading in our data 
+plot_ndvi <- read_csv("veg_ploints-ndvi-MODIS-MOD13Q1.csv") %>%
+  mutate(id = paste(yr, PLOT_ID, sep = "_")) 
+
+plot_ndvi <- setDT(plot_ndvi) # setting as a data.table so that package IRG will work 
+
+# lil summary plot (chaotic)
+ggplot(plot_ndvi, aes(x = DayOfYear, y = NDVI, color = factor(yr)))  + geom_smooth() + facet_wrap(.~yr)
+
+# nesting this for ease of access in loops 
+plot_ndvi_list <- plot_ndvi %>%
+  nest(-id)
+
+
+
+```
+
+
+Now, we're going to do a little bit of data cleaning with the NDVI data, then have a nice .csv file to get to Sarah 
+```{r}
+# a small for loop to add in year and plot ID to our data and to make sure we've got it formatted properly 
+  for(i in 1:nrow(plot_ndvi_list)) {
+    
+    print(plot_ndvi_list[[1]][[i]])
+    plot_ndvi_list[[2]][[i]]$id <- plot_ndvi_list[[1]][[i]]
+    
+    
+    plot_ndvi_list[[2]][[i]] <- data.table::setalloccol(plot_ndvi_list[[2]][[i]]) 
+    
+  }
+
+# next, we're going to write another small for() loop to remove winter data, clean things up using the quality band, and calculate median NDVI from a 3 time step window
+ndvi_list_output <-vector(mode = 'list', length = nrow(plot_ndvi_list))
+
+
+for(i in 1:nrow(plot_ndvi_list)){
+  
+
+  try({
+  
+  # Filter NDVI time series
+  print(plot_ndvi_list[[1]][[i]])
+  tmp <- plot_ndvi_list[[2]][[i]]
+  
+  filter_qa(tmp, qa = 'SummaryQA', good = c(0, 1)) # filtering NDVI to only get good pixels 
+
+  ndvi_list_output[[i]] <- tmp %>%
+    dplyr::select(PLOT_ID, NDVI, SummaryQA, DayOfYear, yr, filtered) %>%
+    rename(raw_NDVI = "NDVI", Image_Quality = "SummaryQA", Year = "yr", filtered_NDVI = "filtered")
+  
+  })
+  
+}
+
+ndvi_list_output_df <- bind_rows(ndvi_list_output) %>%
+  mutate(Growing_Season = ifelse(DayOfYear > 60 & DayOfYear < 300, "Y", "N"))
+
+```
+
+Let's make some little summary plots just to check out our data and see if it makes even the slightest piece of sense 
+```{r}
+
+ggplot(subset(ndvi_list_output_df, Growing_Season == "Y"), aes(x = DayOfYear, y = filtered_NDVI, color = as.factor(Year))) + geom_point(alpha = 0.1) +  geom_smooth() + facet_wrap(.~Year) + theme_bw()
+
+```
+
+Write a .csv file to send to Sarah & Mark 
+```{r}
+write_csv(ndvi_list_output_df, "Peak_Biomass/veg_plots_wgs84/PeakBioPlots_filteredNDVI_2002-2023.csv")
+```
+
