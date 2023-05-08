@@ -1,0 +1,8 @@
+Column,Description
+PLOT_ID,Plot ID for YHT long term biomass monitoring
+raw_NDVI,unfiltered NDVI values from MODIS satellite MOD13Q1.006 Terra Vegetation Indices 16-Day Global 250m
+Image_Quality,image quality based on MODIS quality control bands (0 or 1 is good quality)
+DayOfYear,day of the year
+Year,Year
+filtered_NDVI,NDVI values with low quality values removed
+Growing_Season,was the DOY within the growing season (Day 60 - 300)

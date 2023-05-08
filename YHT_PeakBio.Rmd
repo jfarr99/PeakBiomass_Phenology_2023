@@ -107,13 +107,22 @@ ndvi_list_output_df <- bind_rows(ndvi_list_output) %>%
 Let's make some little summary plots just to check out our data and see if it makes even the slightest piece of sense 
 ```{r}
 
-
-ggplot(subset(ndvi_list_output_df, Growing_Season == "Y"), aes(x = DayOfYear, y = filtered_NDVI, color = as.factor(Year))) + geom_point(alpha = 0.05) +  geom_smooth() + facet_wrap(.~Year) + theme_bw()
+ggplot(subset(ndvi_list_output_df, Growing_Season == "Y"), aes(x = DayOfYear, y = filtered_NDVI, color = as.factor(Year))) + geom_point(alpha = 0.1) +  geom_smooth() + facet_wrap(.~Year) + theme_bw()
 
 ```
 
 Write a .csv file to send to Sarah & Mark 
 ```{r}
-write_csv(ndvi_list_output_df, "Peak_Biomass/veg_plots_wgs84/PeakBioPlots_filteredNDVI_2002-2023.csv")
+write_csv(ndvi_list_output_df, "PeakBioPlots_filteredNDVI_2002-2023.csv")
+
+write_csv(data.frame(Column = c("PLOT_ID", "raw_NDVI", "Image_Quality", "DayOfYear", "Year", "filtered_NDVI", "Growing_Season"), 
+                    Description = c("Plot ID for YHT long term biomass monitoring", 
+                                    "unfiltered NDVI values from MODIS satellite MOD13Q1.006 Terra Vegetation Indices 16-Day Global 250m", 
+                                    "image quality based on MODIS quality control bands (0 or 1 is good quality)", 
+                                    "day of the year", 
+                                    "Year",
+                                    "NDVI values with low quality values removed",
+                                    "was the DOY within the growing season (Day 60 - 300)")), 
+                          "METADATA_PeakBioPlots_filteredNDVI_2002-2023.csv")
 ```
 
